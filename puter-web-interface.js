@@ -238,6 +238,20 @@ class PuterWebInterface {
             console.log('Android interface not available or onPuterAuthSuccess not a function');
             console.log('Available Android methods:', window.Android ? Object.getOwnPropertyNames(window.Android) : 'None');
         }
+        
+        // After a brief delay to ensure the Android app receives the callback,
+        // redirect to the success page
+        setTimeout(() => {
+            // Check if we're in a WebView context (Android)
+            if (window.Android) {
+                // In Android WebView, we don't need to redirect the page
+                // The Android app will handle the redirect
+                console.log('Running in Android WebView - deferring redirect to Android app');
+            } else {
+                // For regular browsers, redirect to the success page
+                window.location.href = 'success.html';
+            }
+        }, 1000); // 1 second delay to ensure callback is processed
     }
     
     /**
