@@ -1,0 +1,24 @@
+{
+  "name": "puter-auth-demo",
+  "version": "1.0",
+  "description": "A simple web app that demonstrates Puter authentication and provides communication with Android apps",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve .",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "puter",
+    "authentication",
+    "android",
+    "webview",
+    "javascript"
+  ],
+  "author": "Blurr AI",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

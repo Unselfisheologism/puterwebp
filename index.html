@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puter Authentication Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .auth-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .auth-button:hover {
+            background-color: #45a049;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .user-info {
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Puter Authentication Demo</h1>
+        <button id="authButton" class="auth-button">Authenticate with Puter</button>
+        <div id="status" class="status hidden"></div>
+        <div id="userInfo" class="user-info hidden"></div>
+        <div id="puterActions" class="hidden">
+            <h3>Puter Actions</h3>
+            <button id="listFilesBtn" class="auth-button">List Files</button>
+            <button id="writeFileBtn" class="auth-button">Write File</button>
+            <button id="readFileBtn" class="auth-button">Read File</button>
+        </div>
+    </div>
+
+    <!-- Load Puter.js SDK -->
+    <script src="https://js.puter.com/v2/"></script>
+    
+    <!-- Load our Puter Web Interface for Android communication -->
+    <script src="puter-web-interface.js"></script>
+    
+    <script>
+        // Status element references
+        const statusDiv = document.getElementById('status');
+        const userInfoDiv = document.getElementById('userInfo');
+        const authButton = document.getElementById('authButton');
+        const puterActionsDiv = document.getElementById('puterActions');
+        const listFilesBtn = document.getElementById('listFilesBtn');
+        const writeFileBtn = document.getElementById('writeFileBtn');
+        const readFileBtn = document.getElementById('readFileBtn');
+        
+        // Function to show status messages
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${isError ? 'error' : 'success'}`;
+            statusDiv.classList.remove('hidden');
+        }
+        
+        // Function to hide status
+        function hideStatus() {
+            statusDiv.classList.add('hidden');
+        }
+        
+        // Function to show user info
+        function showUserInfo(user) {
+            userInfoDiv.innerHTML = `
+                <h3>User Info:</h3>
+                <p><strong>Username:</strong> ${user.username}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>UUID:</strong> ${user.uuid}</p>
+            `;
+            userInfoDiv.classList.remove('hidden');
+        }
+        
+        // Authentication button event listener
+        authButton.addEventListener('click', async () => {
+            try {
+                showStatus('Initiating authentication...');
+                if (window.puterWebInterface) {
+                    await window.puterWebInterface.authenticate();
+                } else {
+                    // Fallback to direct puter auth if interface not loaded
+                    await puter.auth.signIn();
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showStatus(`Authentication failed: ${error.message}`, true);
+            }
+        });
+        
+        // Event listeners for Puter actions
+        listFilesBtn.addEventListener('click', async () => {
+            try {
+                showStatus('Listing files...');
+                if (window.puterWebInterface) {
+                    await window.puterWebInterface.executeOperation('listFiles', { path: '/' });
+                } else {
+                    const items = await puter.fs.ls('/');
+                    showStatus(`Found ${items.length} items in root directory`);
+                    console.log('Files:', items);
+                }
+            } catch (error) {
+                console.error('Error listing files:', error);
+                showStatus(`Error listing files: ${error.message}`, true);
+            }
+        });
+        
+        writeFileBtn.addEventListener('click', async () => {
+            try {
+                showStatus('Writing file...');
+                if (window.puterWebInterface) {
+                    await window.puterWebInterface.executeOperation('writeFile', { 
+                        path: '/hello.txt', 
+                        content: 'Hello from Android-Web app!' 
+                    });
+                } else {
+                    const file = await puter.fs.write('/hello.txt', 'Hello from Android-Web app!');
+                    showStatus('File written successfully');
+                    console.log('File written:', file);
+                }
+            } catch (error) {
+                console.error('Error writing file:', error);
+                showStatus(`Error writing file: ${error.message}`, true);
+            }
+        });
+        
+        readFileBtn.addEventListener('click', async () => {
+            try {
+                showStatus('Reading file...');
+                if (window.puterWebInterface) {
+                    await window.puterWebInterface.executeOperation('readFile', { path: '/hello.txt' });
+                } else {
+                    const content = await puter.fs.read('/hello.txt');
+                    showStatus('File read successfully');
+                    console.log('File content:', content);
+                }
+            } catch (error) {
+                console.error('Error reading file:', error);
+                showStatus(`Error reading file: ${error.message}`, true);
+            }
+        });
+        
+        // Set up event listeners for the Puter Web Interface responses
+        window.addEventListener('message', function(event) {
+            // Only process messages from our puter-web-interface
+            if (event.data && event.data.source === 'puter-web-interface') {
+                const response = event.data;
+                if (response.type === 'authSuccess') {
+                    showStatus('Authentication successful!');
+                    showUserInfo(response.data.user);
+                    puterActionsDiv.classList.remove('hidden');
+                } else if (response.type === 'authError') {
+                    showStatus(`Authentication failed: ${response.data.error}`, true);
+                } else if (response.type === 'operationSuccess') {
+                    showStatus(`${response.data.operation} successful!`);
+                } else if (response.type === 'operationError') {
+                    showStatus(`Error in ${response.data.operation}: ${response.data.error}`, true);
+                }
+            }
+        });
+        
+        // Check if already authenticated when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.puterWebInterface) {
+                try {
+                    const isAuthenticated = await window.puterWebInterface.checkAuthStatus();
+                    if (isAuthenticated) {
+                        const user = await window.puterWebInterface.getUserInfo();
+                        if (user) {
+                            showStatus('Already authenticated');
+                            showUserInfo(user);
+                            puterActionsDiv.classList.remove('hidden');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking auth status:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
