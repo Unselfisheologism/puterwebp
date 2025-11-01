@@ -311,6 +311,21 @@
                         type: 'authSuccess',
                         data: { user }
                     }, '*');
+                    
+                    // After a brief delay to ensure the Android app receives the callback,
+                    // redirect to a simple success page or close the webview
+                    setTimeout(() => {
+                        // Check if we're in a WebView context (Android)
+                        if (window.Android) {
+                            // In Android WebView, we don't need to redirect the page
+                            // The Android app will handle the redirect
+                            console.log('Running in Android WebView - deferring redirect to Android app');
+                        } else {
+                            // For regular browsers, redirect to a success page
+                            // You can customize this redirect URL as needed
+                            window.location.href = 'success.html';
+                        }
+                    }, 1000); // 1 second delay to ensure callback is processed
                 } catch (error) {
                     console.error('Error parsing user JSON:', error);
                     showStatus('Authentication successful but failed to parse user data', true);
