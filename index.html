@@ -43,27 +43,10 @@
             background-color: #45a049;
         }
         
-        .auth-button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
         .status {
             margin-top: 20px;
             padding: 10px;
             border-radius: 4px;
-        }
-        
-        .status.success {
-            background-color: #dff0d8;
-            color: #3c763d;
-            border: 1px solid #d6e9c6;
-        }
-        
-        .status.error {
-            background-color: #f2dede;
-            color: #a94442;
-            border: 1px solid #ebccd1;
         }
         
         .hidden {
@@ -76,23 +59,6 @@
             padding: 15px;
             background-color: #f9f9f9;
             border-radius: 4px;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #4CAF50;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-            vertical-align: middle;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
         
         .action-buttons {
@@ -155,13 +121,6 @@
             statusDiv.classList.add('hidden');
         }
         
-        // Function to show loading status
-        function showLoading(message) {
-            statusDiv.innerHTML = `<span class="loading"></span>${message}`;
-            statusDiv.className = 'status';
-            statusDiv.classList.remove('hidden');
-        }
-        
         // Function to show user info
         function showUserInfo(user) {
             userInfoDiv.innerHTML = `
@@ -173,15 +132,10 @@
             userInfoDiv.classList.remove('hidden');
         }
         
-        // Function to hide user info
-        function hideUserInfo() {
-            userInfoDiv.classList.add('hidden');
-        }
-        
         // Authentication button event listener
         authButton.addEventListener('click', async () => {
             try {
-                showLoading('Initiating authentication...');
+                showStatus('Initiating authentication...');
                 authButton.disabled = true;
                 
                 // Initialize PuterWebInterface if not already done
@@ -201,7 +155,7 @@
         // Event listeners for Puter actions
         listFilesBtn.addEventListener('click', async () => {
             try {
-                showLoading('Listing files...');
+                showStatus('Listing files...');
                 listFilesBtn.disabled = true;
                 
                 if (window.puterWebInterface) {
@@ -221,7 +175,7 @@
         
         writeFileBtn.addEventListener('click', async () => {
             try {
-                showLoading('Writing file...');
+                showStatus('Writing file...');
                 writeFileBtn.disabled = true;
                 
                 if (window.puterWebInterface) {
@@ -244,7 +198,7 @@
         
         readFileBtn.addEventListener('click', async () => {
             try {
-                showLoading('Reading file...');
+                showStatus('Reading file...');
                 readFileBtn.disabled = true;
                 
                 if (window.puterWebInterface) {
@@ -264,7 +218,7 @@
         
         signOutBtn.addEventListener('click', async () => {
             try {
-                showLoading('Signing out...');
+                showStatus('Signing out...');
                 signOutBtn.disabled = true;
                 
                 if (window.puterWebInterface) {
@@ -296,7 +250,7 @@
                     showStatus('Authentication successful!');
                     showUserInfo(response.data.user);
                     puterActionsDiv.classList.remove('hidden');
-                    authButton.disabled = false;
+                    authButton.disabled = true;
                     authButton.textContent = 'Already Authenticated';
                 } else if (response.type === 'authError') {
                     showStatus(`Authentication failed: ${response.data.error}`, true);

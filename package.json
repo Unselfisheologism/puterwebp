@@ -1,24 +1,31 @@
 {
-  "name": "puter-auth-demo",
-  "version": "1.0",
-  "description": "A simple web app that demonstrates Puter authentication and provides communication with Android apps",
+  "name": "puter-auth-web-app",
+  "version": "1.0.0",
+  "description": "A web application that provides Puter authentication functionality for Android apps",
   "main": "index.html",
   "scripts": {
-    "dev": "npx serve .",
-    "start": "npx serve .",
+    "start": "serve .",
+    "dev": "serve .",
     "deploy": "vercel --prod"
   },
   "keywords": [
     "puter",
     "authentication",
     "android",
-    "webview",
-    "javascript"
+    "webview"
   ],
-  "author": "Blurr AI",
+  "author": "Blurr Voice Team",
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
     "serve": "^14.2.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/puter-auth-web-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/puter-auth-web-app/issues"
+  },
+  "homepage": "https://github.com/your-repo/puter-auth-web-app#readme"
 }
