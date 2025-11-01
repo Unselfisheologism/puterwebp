@@ -10,7 +10,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             background-color: #f0f0f0;
         }
@@ -21,6 +21,8 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 90%;
         }
         
         .auth-button {
@@ -41,10 +43,27 @@
             background-color: #45a049;
         }
         
+        .auth-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
         .status {
             margin-top: 20px;
             padding: 10px;
             border-radius: 4px;
+        }
+        
+        .status.success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        
+        .status.error {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
         }
         
         .hidden {
@@ -54,20 +73,56 @@
         .user-info {
             margin-top: 20px;
             text-align: left;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .action-buttons {
+            margin-top: 20px;
+        }
+        
+        .action-buttons button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Puter Authentication Demo</h1>
+        <p>This demo shows how to authenticate with Puter and communicate with an Android app.</p>
+        
         <button id="authButton" class="auth-button">Authenticate with Puter</button>
+        
         <div id="status" class="status hidden"></div>
+        
         <div id="userInfo" class="user-info hidden"></div>
-        <div id="puterActions" class="hidden">
+        
+        <div id="puterActions" class="action-buttons hidden">
             <h3>Puter Actions</h3>
             <button id="listFilesBtn" class="auth-button">List Files</button>
             <button id="writeFileBtn" class="auth-button">Write File</button>
             <button id="readFileBtn" class="auth-button">Read File</button>
+            <button id="signOutBtn" class="auth-button" style="background-color: #f44336;">Sign Out</button>
         </div>
     </div>
 
@@ -86,6 +141,7 @@
         const listFilesBtn = document.getElementById('listFilesBtn');
         const writeFileBtn = document.getElementById('writeFileBtn');
         const readFileBtn = document.getElementById('readFileBtn');
+        const signOutBtn = document.getElementById('signOutBtn');
         
         // Function to show status messages
         function showStatus(message, isError = false) {
@@ -99,10 +155,17 @@
             statusDiv.classList.add('hidden');
         }
         
+        // Function to show loading status
+        function showLoading(message) {
+            statusDiv.innerHTML = `<span class="loading"></span>${message}`;
+            statusDiv.className = 'status';
+            statusDiv.classList.remove('hidden');
+        }
+        
         // Function to show user info
         function showUserInfo(user) {
             userInfoDiv.innerHTML = `
-                <h3>User Info:</h3>
+                <h3>Authenticated User:</h3>
                 <p><strong>Username:</strong> ${user.username}</p>
                 <p><strong>Email:</strong> ${user.email}</p>
                 <p><strong>UUID:</strong> ${user.uuid}</p>
@@ -110,26 +173,37 @@
             userInfoDiv.classList.remove('hidden');
         }
         
+        // Function to hide user info
+        function hideUserInfo() {
+            userInfoDiv.classList.add('hidden');
+        }
+        
         // Authentication button event listener
         authButton.addEventListener('click', async () => {
             try {
-                showStatus('Initiating authentication...');
-                if (window.puterWebInterface) {
-                    await window.puterWebInterface.authenticate();
-                } else {
-                    // Fallback to direct puter auth if interface not loaded
-                    await puter.auth.signIn();
+                showLoading('Initiating authentication...');
+                authButton.disabled = true;
+                
+                // Initialize PuterWebInterface if not already done
+                if (!window.puterWebInterface) {
+                    window.puterWebInterface = new PuterWebInterface();
                 }
+                
+                // Call authenticate through the web interface
+                await window.puterWebInterface.authenticate();
             } catch (error) {
                 console.error('Authentication error:', error);
                 showStatus(`Authentication failed: ${error.message}`, true);
+                authButton.disabled = false;
             }
         });
         
         // Event listeners for Puter actions
         listFilesBtn.addEventListener('click', async () => {
             try {
-                showStatus('Listing files...');
+                showLoading('Listing files...');
+                listFilesBtn.disabled = true;
+                
                 if (window.puterWebInterface) {
                     await window.puterWebInterface.executeOperation('listFiles', { path: '/' });
                 } else {
@@ -140,31 +214,39 @@
             } catch (error) {
                 console.error('Error listing files:', error);
                 showStatus(`Error listing files: ${error.message}`, true);
+            } finally {
+                listFilesBtn.disabled = false;
             }
         });
         
         writeFileBtn.addEventListener('click', async () => {
             try {
-                showStatus('Writing file...');
+                showLoading('Writing file...');
+                writeFileBtn.disabled = true;
+                
                 if (window.puterWebInterface) {
                     await window.puterWebInterface.executeOperation('writeFile', { 
                         path: '/hello.txt', 
-                        content: 'Hello from Android-Web app!' 
+                        content: 'Hello from Android-Web app! Generated at: ' + new Date().toISOString()
                     });
                 } else {
-                    const file = await puter.fs.write('/hello.txt', 'Hello from Android-Web app!');
+                    const file = await puter.fs.write('/hello.txt', 'Hello from Android-Web app! Generated at: ' + new Date().toISOString());
                     showStatus('File written successfully');
                     console.log('File written:', file);
                 }
             } catch (error) {
                 console.error('Error writing file:', error);
                 showStatus(`Error writing file: ${error.message}`, true);
+            } finally {
+                writeFileBtn.disabled = false;
             }
         });
         
         readFileBtn.addEventListener('click', async () => {
             try {
-                showStatus('Reading file...');
+                showLoading('Reading file...');
+                readFileBtn.disabled = true;
+                
                 if (window.puterWebInterface) {
                     await window.puterWebInterface.executeOperation('readFile', { path: '/hello.txt' });
                 } else {
@@ -175,6 +257,31 @@
             } catch (error) {
                 console.error('Error reading file:', error);
                 showStatus(`Error reading file: ${error.message}`, true);
+            } finally {
+                readFileBtn.disabled = false;
+            }
+        });
+        
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                showLoading('Signing out...');
+                signOutBtn.disabled = true;
+                
+                if (window.puterWebInterface) {
+                    await window.puterWebInterface.signOut();
+                } else {
+                    await puter.auth.signOut();
+                    showStatus('Signed out successfully');
+                    hideUserInfo();
+                    puterActionsDiv.classList.add('hidden');
+                    authButton.disabled = false;
+                    authButton.textContent = 'Authenticate with Puter';
+                }
+            } catch (error) {
+                console.error('Error signing out:', error);
+                showStatus(`Error signing out: ${error.message}`, true);
+            } finally {
+                signOutBtn.disabled = false;
             }
         });
         
@@ -183,38 +290,129 @@
             // Only process messages from our puter-web-interface
             if (event.data && event.data.source === 'puter-web-interface') {
                 const response = event.data;
+                console.log('Received message from puter-web-interface:', response);
+                
                 if (response.type === 'authSuccess') {
                     showStatus('Authentication successful!');
                     showUserInfo(response.data.user);
                     puterActionsDiv.classList.remove('hidden');
+                    authButton.disabled = false;
+                    authButton.textContent = 'Already Authenticated';
                 } else if (response.type === 'authError') {
                     showStatus(`Authentication failed: ${response.data.error}`, true);
+                    authButton.disabled = false;
                 } else if (response.type === 'operationSuccess') {
                     showStatus(`${response.data.operation} successful!`);
                 } else if (response.type === 'operationError') {
                     showStatus(`Error in ${response.data.operation}: ${response.data.error}`, true);
+                } else if (response.type === 'signOut') {
+                    showStatus('Signed out successfully');
+                    hideUserInfo();
+                    puterActionsDiv.classList.add('hidden');
+                    authButton.disabled = false;
+                    authButton.textContent = 'Authenticate with Puter';
                 }
             }
         });
         
         // Check if already authenticated when page loads
         document.addEventListener('DOMContentLoaded', async () => {
-            if (window.puterWebInterface) {
-                try {
-                    const isAuthenticated = await window.puterWebInterface.checkAuthStatus();
-                    if (isAuthenticated) {
-                        const user = await window.puterWebInterface.getUserInfo();
-                        if (user) {
-                            showStatus('Already authenticated');
-                            showUserInfo(user);
-                            puterActionsDiv.classList.remove('hidden');
-                        }
+            // Initialize PuterWebInterface
+            if (!window.puterWebInterface) {
+                window.puterWebInterface = new PuterWebInterface();
+            }
+            
+            try {
+                const isAuthenticated = await window.puterWebInterface.checkAuthStatus();
+                if (isAuthenticated) {
+                    const user = await window.puterWebInterface.getUserInfo();
+                    if (user) {
+                        showStatus('Already authenticated');
+                        showUserInfo(user);
+                        puterActionsDiv.classList.remove('hidden');
+                        authButton.textContent = 'Already Authenticated';
+                        authButton.disabled = true;
                     }
-                } catch (error) {
-                    console.error('Error checking auth status:', error);
                 }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
             }
         });
+        
+        // Android interface methods for direct communication
+        window.Android = {
+            onPuterAuthSuccess: function(userJson) {
+                console.log('Android.onPuterAuthSuccess called with:', userJson);
+                try {
+                    const user = JSON.parse(userJson);
+                    showStatus('Authentication successful!');
+                    showUserInfo(user);
+                    puterActionsDiv.classList.remove('hidden');
+                    authButton.disabled = true;
+                    authButton.textContent = 'Already Authenticated';
+                    
+                    // Notify parent window if in iframe
+                    window.parent.postMessage({
+                        source: 'puter-web-interface',
+                        type: 'authSuccess',
+                        data: { user }
+                    }, '*');
+                } catch (error) {
+                    console.error('Error parsing user JSON:', error);
+                    showStatus('Authentication successful but failed to parse user data', true);
+                }
+            },
+            
+            onPuterAuthError: function(error) {
+                console.log('Android.onPuterAuthError called with:', error);
+                showStatus(`Authentication failed: ${error}`, true);
+                authButton.disabled = false;
+                
+                // Notify parent window if in iframe
+                window.parent.postMessage({
+                    source: 'puter-web-interface',
+                    type: 'authError',
+                    data: { error }
+                }, '*');
+            },
+            
+            onPuterActionSuccess: function(operation, result) {
+                console.log('Android.onPuterActionSuccess called with:', operation, result);
+                showStatus(`${operation} successful!`);
+                
+                // Notify parent window if in iframe
+                window.parent.postMessage({
+                    source: 'puter-web-interface',
+                    type: 'operationSuccess',
+                    data: { operation, result }
+                }, '*');
+            },
+            
+            onPuterActionError: function(operation, error) {
+                console.log('Android.onPuterActionError called with:', operation, error);
+                showStatus(`Error in ${operation}: ${error}`, true);
+                
+                // Notify parent window if in iframe
+                window.parent.postMessage({
+                    source: 'puter-web-interface',
+                    type: 'operationError',
+                    data: { operation, error }
+                }, '*');
+            },
+            
+            onPuterResponse: function(responseJson) {
+                console.log('Android.onPuterResponse called with:', responseJson);
+                try {
+                    const response = JSON.parse(responseJson);
+                    // Handle generic response
+                    console.log('Generic response:', response);
+                } catch (error) {
+                    console.error('Error parsing response JSON:', error);
+                }
+            }
+        };
+        
+        console.log('Android interface methods registered');
     </script>
 </body>
 </html>

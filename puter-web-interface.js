@@ -7,6 +7,7 @@ class PuterWebInterface {
     constructor() {
         this.isInitialized = false;
         this.puter = window.puter;
+        this.authInProgress = false;
         
         // Ensure puter is available
         if (!this.puter) {
@@ -16,6 +17,7 @@ class PuterWebInterface {
         
         // Set up authentication callback
         this.puter.onAuth = (user) => {
+            console.log('Puter auth callback received:', user);
             this.onAuthenticationSuccess(user);
         };
         
@@ -76,18 +78,26 @@ class PuterWebInterface {
                 throw new Error('PuterWebInterface not initialized');
             }
             
+            console.log('Starting authentication process...');
+            this.authInProgress = true;
+            
             // Check if already authenticated
             const isAuthenticated = await this.puter.auth.isAuthenticated();
             if (isAuthenticated) {
+                console.log('User already authenticated');
                 const user = await this.puter.getUser();
                 this.onAuthenticationSuccess(user);
+                this.authInProgress = false;
                 return;
             }
             
             // Start authentication process
+            console.log('Calling puter.auth.signIn()');
             await this.puter.auth.signIn();
+            console.log('puter.auth.signIn() completed');
         } catch (error) {
             console.error('Authentication error:', error);
+            this.authInProgress = false;
             this.onAuthenticationError(error);
         }
     }
@@ -213,11 +223,20 @@ class PuterWebInterface {
      */
     onAuthenticationSuccess(user) {
         console.log('Authentication successful:', user);
+        this.authInProgress = false;
         this.sendResponse('authSuccess', { user });
         
         // Also notify via Android interface if available
         if (window.Android && typeof window.Android.onPuterAuthSuccess === 'function') {
-            window.Android.onPuterAuthSuccess(JSON.stringify(user));
+            try {
+                console.log('Calling Android.onPuterAuthSuccess with user:', user);
+                window.Android.onPuterAuthSuccess(JSON.stringify(user));
+            } catch (error) {
+                console.error('Error calling Android.onPuterAuthSuccess:', error);
+            }
+        } else {
+            console.log('Android interface not available or onPuterAuthSuccess not a function');
+            console.log('Available Android methods:', window.Android ? Object.getOwnPropertyNames(window.Android) : 'None');
         }
     }
     
@@ -226,11 +245,16 @@ class PuterWebInterface {
      */
     onAuthenticationError(error) {
         console.error('Authentication error:', error);
+        this.authInProgress = false;
         this.sendResponse('authError', { error: error.message });
         
         // Also notify via Android interface if available
         if (window.Android && typeof window.Android.onPuterAuthError === 'function') {
-            window.Android.onPuterAuthError(error.message);
+            try {
+                window.Android.onPuterAuthError(error.message);
+            } catch (err) {
+                console.error('Error calling Android.onPuterAuthError:', err);
+            }
         }
     }
     
@@ -243,7 +267,11 @@ class PuterWebInterface {
         
         // Also notify via Android interface if available
         if (window.Android && typeof window.Android.onPuterActionSuccess === 'function') {
-            window.Android.onPuterActionSuccess(operation, JSON.stringify(this.serializeResult(result)));
+            try {
+                window.Android.onPuterActionSuccess(operation, JSON.stringify(this.serializeResult(result)));
+            } catch (err) {
+                console.error('Error calling Android.onPuterActionSuccess:', err);
+            }
         }
     }
     
@@ -256,7 +284,11 @@ class PuterWebInterface {
         
         // Also notify via Android interface if available
         if (window.Android && typeof window.Android.onPuterActionError === 'function') {
-            window.Android.onPuterActionError(operation, error.message);
+            try {
+                window.Android.onPuterActionError(operation, error.message);
+            } catch (err) {
+                console.error('Error calling Android.onPuterActionError:', err);
+            }
         }
     }
     
@@ -269,7 +301,11 @@ class PuterWebInterface {
             const response = { type, data, timestamp: Date.now() };
             // Using a generic method - Android side should handle different response types
             if (typeof window.Android.onPuterResponse === 'function') {
-                window.Android.onPuterResponse(JSON.stringify(response));
+                try {
+                    window.Android.onPuterResponse(JSON.stringify(response));
+                } catch (err) {
+                    console.error('Error calling Android.onPuterResponse:', err);
+                }
             }
         }
         

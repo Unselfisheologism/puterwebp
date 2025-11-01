@@ -1,275 +1,197 @@
 # Android Integration Guide
 
-This document explains how to integrate the Puter authentication web app with your Android application.
+This document explains how to integrate the Puter Authentication Web App with an Android application.
 
-## WebView Setup
+## Overview
 
-To integrate the web app into your Android app, you'll need to set up a WebView with proper configuration:
+The Puter Authentication Web App serves as a bridge between the Android app and the Puter.js SDK. It handles authentication popups and other Puter operations that cannot be directly handled in a WebView.
 
-```kotlin
-class PuterWebViewActivity : AppCompatActivity() {
-    private lateinit var webView: WebView
+## Architecture
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_puter_webview)
+1. Android app loads the web app in a WebView
+2. User interacts with the web app UI to authenticate with Puter
+3. Web app opens authentication popup and handles the authentication flow
+4. After successful authentication, web app calls Android interface methods
+5. Android app receives callbacks and navigates to the main app flow
 
-        webView = findViewById(R.id.webview)
-        
-        val settings = webView.settings
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.allowFileAccess = false
-        settings.allowContentAccess = false
-        settings.databaseEnabled = true
-        settings.setSupportZoom(false)
-        settings.builtInZoomControls = false
-        settings.displayZoomControls = false
-        
-        // Enable popup windows for authentication
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
-                // Create a new WebView to handle popup windows
-                val popupWebView = WebView(this@PuterWebViewActivity).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                }
-                
-                // Set up the new WebView
-                (view.parent as? ViewGroup)?.addView(popupWebView)
-                val transport = resultMsg.obj as WebView.WebViewTransport
-                transport.webView = popupWebView
-                resultMsg.sendToTarget()
-                
-                return true
-            }
-            
-            override fun onCloseWindow(window: WebView) {
-                // Remove the popup WebView when closed
-                (window.parent as? ViewGroup)?.removeView(window)
-            }
-        }
-        
-        // Add JavaScript interface for communication
-        webView.addJavascriptInterface(PuterJavaScriptInterface(this), "Android")
-        
-        // Load the deployed web app
-        webView.loadUrl("YOUR_DEPLOYED_URL_HERE")
-    }
-    
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
-    }
-}
+## WebView Configuration
+
+The Android app must configure the WebView properly to support the web app:
+
+```java
+WebView webView = findViewById(R.id.puterWebView);
+webView.getSettings().setJavaScriptEnabled(true);
+webView.getSettings().setDomStorageEnabled(true);
+webView.getSettings().setSupportMultipleWindows(true);
+webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+webView.setWebChromeClient(new PuterWebChromeClient()); // Handles popup windows
+webView.addJavascriptInterface(new AndroidInterface(), "Android"); // Communication interface
+webView.loadUrl("https://puterwebp.vercel.app"); // Load the deployed web app
 ```
 
-## JavaScript Interface
+## Android Interface
 
-Create a JavaScript interface class to handle callbacks from the web app:
+The Android app must implement a JavaScript interface with these methods:
 
-```kotlin
-class PuterJavaScriptInterface(private val context: Context) {
-    private val TAG = "PuterJSInterface"
-    
+```java
+public class AndroidInterface {
     @JavascriptInterface
-    fun onPuterAuthSuccess(userJson: String) {
-        Log.d(TAG, "Authentication successful: $userJson")
+    public void onPuterAuthSuccess(String userJson) {
         // Handle successful authentication
-        // You can parse the userJson and store user information
-        val user = JSONObject(userJson)
-        val username = user.getString("username")
-        val email = user.getString("email")
-        
-        // Store authentication info in your app
-        val prefs = context.getSharedPreferences("puter_auth", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString("username", username)
-            .putString("email", email)
-            .putBoolean("is_authenticated", true)
-            .apply()
-        
-        // Notify your app about successful authentication
-        val intent = Intent("PUTER_AUTH_SUCCESS")
-        intent.putExtra("user", userJson)
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+        // Parse userJson and store user information
+        // Navigate to main app flow
     }
     
     @JavascriptInterface
-    fun onPuterAuthError(error: String) {
-        Log.e(TAG, "Authentication error: $error")
+    public void onPuterAuthError(String error) {
         // Handle authentication error
-        val intent = Intent("PUTER_AUTH_ERROR")
-        intent.putExtra("error", error)
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
     
     @JavascriptInterface
-    fun onPuterActionSuccess(operation: String, result: String) {
-        Log.d(TAG, "$operation successful: $result")
+    public void onPuterActionSuccess(String operation, String result) {
         // Handle successful Puter operation
-        val intent = Intent("PUTER_ACTION_SUCCESS")
-        intent.putExtra("operation", operation)
-        intent.putExtra("result", result)
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
     
     @JavascriptInterface
-    fun onPuterActionError(operation: String, error: String) {
-        Log.e(TAG, "$operation error: $error")
+    public void onPuterActionError(String operation, String error) {
         // Handle Puter operation error
-        val intent = Intent("PUTER_ACTION_ERROR")
-        intent.putExtra("operation", operation)
-        intent.putExtra("error", error)
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
     
     @JavascriptInterface
-    fun onPuterResponse(responseJson: String) {
-        Log.d(TAG, "Generic response: $responseJson")
+    public void onPuterResponse(String responseJson) {
         // Handle generic response
-        val intent = Intent("PUTER_RESPONSE")
-        intent.putExtra("response", responseJson)
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
-    }
-    
-    @JavascriptInterface
-    fun onPuterSignOut() {
-        Log.d(TAG, "User signed out")
-        // Handle sign out
-        val prefs = context.getSharedPreferences("puter_auth", Context.MODE_PRIVATE)
-        prefs.edit()
-            .clear()
-            .apply()
-        
-        val intent = Intent("PUTER_SIGN_OUT")
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
 }
 ```
 
-## Layout File
+## Authentication Flow
 
-Create the layout file `activity_puter_webview.xml`:
+1. User opens the Android app and sees the authentication screen
+2. Android loads the Puter Authentication Web App in a WebView
+3. User clicks the "Authenticate with Puter" button in the web app
+4. Web app opens authentication popup
+5. User completes authentication in the popup
+6. Popup closes automatically after successful authentication
+7. Web app calls `window.Android.onPuterAuthSuccess(userJson)`
+8. Android receives the callback and navigates to the main app flow
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+## Communication Methods
 
-    <WebView
-        android:id="@+id/webview"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+The web app provides several ways to communicate with the Android app:
 
-</LinearLayout>
+### Direct Method Calls
+
+The web app directly calls Android interface methods:
+- `window.Android.onPuterAuthSuccess(userJson)`
+- `window.Android.onPuterAuthError(error)`
+- `window.Android.onPuterActionSuccess(operation, result)`
+- `window.Android.onPuterActionError(operation, error)`
+- `window.Android.onPuterResponse(responseJson)`
+
+### PostMessage Communication
+
+The web app also sends messages via `window.postMessage`:
+```javascript
+window.postMessage({
+    source: 'puter-web-interface',
+    type: 'authSuccess',
+    data: { user }
+}, '*');
 ```
 
-## Permissions
+## Web App API
 
-Add necessary permissions to your `AndroidManifest.xml`:
+The web app exposes these methods that Android can call:
 
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+### Authentication
+```javascript
+// Trigger authentication
+window.puterWebInterface.authenticate();
+
+// Check authentication status
+window.puterWebInterface.checkAuthStatus();
+
+// Get user information
+window.puterWebInterface.getUserInfo();
+
+// Sign out
+window.puterWebInterface.signOut();
 ```
 
-## Calling JavaScript from Android
+### File Operations
+```javascript
+// List files
+window.puterWebInterface.executeOperation('listFiles', { path: '/' });
 
-You can call JavaScript functions from your Android code:
+// Write file
+window.puterWebInterface.executeOperation('writeFile', { 
+    path: '/hello.txt', 
+    content: 'Hello World' 
+});
 
-```kotlin
-// Example: Calling a function from Android to the web app
-fun callWebAppFunction() {
-    val jsCode = """
-        (function() {
-            if (window.puterWebInterface) {
-                return window.puterWebInterface.executeOperation('listFiles', { path: '/' });
-            } else {
-                return 'Interface not available';
-            }
-        })()
-    """.trimIndent()
-    
-    webView.evaluateJavascript(jsCode) { result ->
-        Log.d("WebView", "JavaScript result: $result")
-    }
-}
+// Read file
+window.puterWebInterface.executeOperation('readFile', { path: '/hello.txt' });
 
-// Example: Authenticate from Android side
-fun authenticateWithPuter() {
-    val jsCode = """
-        (function() {
-            if (window.puterWebInterface) {
-                return window.puterWebInterface.authenticate();
-            } else {
-                return 'Interface not available';
-            }
-        })()
-    """.trimIndent()
-    
-    webView.evaluateJavascript(jsCode) { result ->
-        Log.d("WebView", "Authentication initiated: $result")
-    }
+// Delete file
+window.puterWebInterface.executeOperation('deleteFile', { path: '/hello.txt' });
+
+// Create directory
+window.puterWebInterface.executeOperation('createDir', { path: '/mydir' });
+
+// Get file stats
+window.puterWebInterface.executeOperation('statFile', { path: '/hello.txt' });
+```
+
+## Error Handling
+
+The web app handles errors gracefully and reports them to the Android app:
+
+1. Authentication errors are reported via `onPuterAuthError`
+2. Operation errors are reported via `onPuterActionError`
+3. Generic errors are reported via `onPuterResponse`
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Popups not opening**: Ensure `setSupportMultipleWindows(true)` and `setJavaScriptCanOpenWindowsAutomatically(true)` are set
+2. **JavaScript interface not working**: Verify `@JavascriptInterface` annotation and method names match
+3. **Authentication not completing**: Check that the web app properly calls Android interface methods after authentication
+
+### Debugging Tips
+
+1. Enable WebView debugging in Android:
+```java
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+    WebView.setWebContentsDebuggingEnabled(true);
 }
 ```
 
-## Handling Authentication Results
-
-To handle authentication results in your main activity:
-
-```kotlin
-private val puterAuthReceiver = object : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            "PUTER_AUTH_SUCCESS" -> {
-                val userJson = intent.getStringExtra("user")
-                // Handle successful authentication
-                Log.d("MainActivity", "Puter authentication successful: $userJson")
-            }
-            "PUTER_AUTH_ERROR" -> {
-                val error = intent.getStringExtra("error")
-                // Handle authentication error
-                Log.e("MainActivity", "Puter authentication error: $error")
-            }
-        }
+2. Check logs for JavaScript errors:
+```java
+webView.setWebChromeClient(new WebChromeClient() {
+    @Override
+    public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+        Log.d("WebView", consoleMessage.message() + " -- From line "
+                + consoleMessage.lineNumber() + " of "
+                + consoleMessage.sourceId());
+        return super.onConsoleMessage(consoleMessage);
     }
-}
-
-// Register the receiver in onCreate
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    // ... other code ...
-    
-    val filter = IntentFilter().apply {
-        addAction("PUTER_AUTH_SUCCESS")
-        addAction("PUTER_AUTH_ERROR")
-    }
-    LocalBroadcastManager.getInstance(this).registerReceiver(puterAuthReceiver, filter)
-}
-
-// Unregister the receiver in onDestroy
-override fun onDestroy() {
-    super.onDestroy()
-    LocalBroadcastManager.getInstance(this).unregisterReceiver(puterAuthReceiver)
-}
+});
 ```
 
 ## Security Considerations
 
-1. **Validate Origins**: In production, ensure you validate message origins to prevent unauthorized access
-2. **Secure Storage**: Store authentication tokens securely using Android's encrypted preferences
-3. **HTTPS**: Always load the web app over HTTPS in production
-4. **WebView Security**: Disable file access and content access in WebView settings
+1. Validate message origins to prevent unauthorized access
+2. Sanitize all data passed between web app and Android app
+3. Use HTTPS for all communications
+4. Store sensitive information securely in Android app
 
-## Testing
+## Updates and Maintenance
 
-1. Run the web app locally using `npm run dev`
-2. Update the URL in your Android app to point to your local server (e.g., `http://10.0.2.2:3000` for Android emulator)
-3. Test the authentication flow and file operations
-4. Verify that callbacks are properly received in the Android app
+To update the web app:
+1. Make changes to the web app files
+2. Deploy to Vercel using `vercel` command
+3. No changes needed in Android app (unless new features are added)
+
+The web app can be updated independently of the Android app, allowing for easier maintenance and feature additions.
